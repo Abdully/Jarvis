@@ -45,17 +45,32 @@ def cosine_similarity(user_list, item_list):
                 item_matrix[i, j] = item_matrix[i, j] / (sqrt(times))
     return item_matrix
 
-def top_n(item_matrix, n=3):
-    recommendation_list = [[0] * n] * item_matrix.shape[0]
+def top_n(item_matrix, user_list, item_list, n=3):
+    topn_list = [[0] * n] * item_matrix.shape[0]
+    recommendation_list = []
     for i in range(item_matrix.shape[0]):
-        recommendation_list[i] = heapq.nlargest(n, item_matrix.tolist()[i])
+        topn_list[i] = heapq.nlargest(n, range(len(item_matrix.tolist()[i])), item_matrix.tolist()[i].__getitem__)
+    for user in user_list:
+        topn = []
+        for item in user.item_rank:
+            topn.append(topn_list[item_list.index(item)])
+            # TODO
+        recommendation_list.append({user.user_id: topn})
     return recommendation_list
-    
-def precision():
-    pass
 
-def recall():
-    pass
+def measure(test_user_list, recommendation_list):
+    # TODO
+    true_positives = 0
+    for test_item in test_user_list:
+        for reco_item in recommendation_list:
+            if test_item == reco_item:
+                true_positives += 1
+    false_positives = len(recommendation_list) - true_positives
+    false_negatives = len(test_user_list) - true_positives
+
+    precision = true_positives / (len(recommendation_list))
+    recall = true_positives / len(test_user_list)
+    return(precision, recall)
 
 class User(object):
     def __init__(self, user_id, item_rank):
@@ -65,9 +80,10 @@ class User(object):
 def main():
     ''' item-based collaborative filtering'''
 
-    user_list, item_list = read_data('test')
-    item_matrix = cosine_similarity(user_list, item_list)
-    recommendation_list = top_n(item_matrix)
-
+    train_user_list, train_item_list = read_data('train')
+    item_matrix = cosine_similarity(train_user_list, train_item_list)
+    recommendation_list = top_n(item_matrix, train_user_list, train_item_list)
+    print(recommendation_list)
+    
 if __name__ == '__main__':
     main()
