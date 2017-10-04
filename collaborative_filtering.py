@@ -1,8 +1,12 @@
 import csv
+import time
 import heapq
+import timeit
+import logging
 from numpy import *
 
 def read_data(month):
+    logging.info('begin to read data in {0}.'.format(month))
     user_list = []
     item_list = []
     with open('data/{0}.csv'.format(month)) as csv_file:
@@ -25,9 +29,11 @@ def read_data(month):
             if not user_exist:
                 user = User(user_id, {item_id: count})
                 user_list.append(user)
+    logging.info('complete loading data in {0}.'.format(month))
     return (user_list, item_list)
 
 def cosine_similarity(user_list, item_list):
+    logging.info('begin to calculate cosine similarity.')
     item_len = len(item_list)
     temp_item_matrix = mat(zeros((item_len, item_len)))
     item_matrix = mat(zeros((item_len, item_len)))
@@ -44,9 +50,11 @@ def cosine_similarity(user_list, item_list):
             times = sum_column * sum_row
             if times != 0:
                 item_matrix[i, j] = temp_item_matrix[i, j] / (sqrt(times))
+    logging.info('complete calculating cosine similarity.')
     return item_matrix
 
 def top_n(item_matrix, user_list, item_list, n=3):
+    logging.info('begin to calculate top_n.')
     topn_list = [[0] * n] * item_matrix.shape[0]
     recommendation_list = {}
     for i in range(item_matrix.shape[0]):
@@ -58,9 +66,11 @@ def top_n(item_matrix, user_list, item_list, n=3):
                 topn.append((item_list.index(item), reco_item))
         topn.sort(key=lambda tup: item_matrix[tup[0], tup[1]], reverse=True)
         recommendation_list[user.user_id] = topn[:n]
+    logging.info('complete calculating top_n.')
     return recommendation_list
 
 def measure(test_user_list, recommendation_list, item_list):
+    logging.info('begin to test.')
     precision = []
     recall = []
     true_positives = 0
@@ -71,6 +81,7 @@ def measure(test_user_list, recommendation_list, item_list):
                     true_positives += 1
         precision.append(true_positives / (len(recommendation_list)))
         recall.append(true_positives / len(test_user_list))
+    logging.info('complete testing.')
     return(precision, recall)
 
 class User(object):
@@ -80,14 +91,21 @@ class User(object):
 
 def main():
     ''' item-based collaborative filtering'''
+    logging.basicConfig(filename='cf.log', level=logging.INFO)
+    logging.info(time.asctime(time.localtime(time.time())))
+    start_time = timeit.default_timer()
 
     train_user_list, train_item_list = read_data('july')
     item_matrix = cosine_similarity(train_user_list, train_item_list)
     recommendation_list = top_n(item_matrix, train_user_list, train_item_list)
     test_user_list, _ = read_data('aug')
     precision, recall = measure(test_user_list, recommendation_list, train_item_list)
-    print('precision: {0}'.format(precision))
-    print('recall: {0}'.format(recall))
+    result = open("result.txt", 'w+')
+    print('precision: {0}'.format(precision), file=result)
+    print('recall: {0}'.format(recall), file=result)
+
+    stop_time = timeit.default_timer()
+    logging.info('run in {0} seconds.\n'.format(stop_time - start_time)) 
 
 if __name__ == '__main__':
     main()
