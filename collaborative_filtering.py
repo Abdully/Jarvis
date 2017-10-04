@@ -29,47 +29,48 @@ def read_data(month):
 
 def cosine_similarity(user_list, item_list):
     item_len = len(item_list)
+    temp_item_matrix = mat(zeros((item_len, item_len)))
     item_matrix = mat(zeros((item_len, item_len)))
     for user in user_list:
         for item_1 in user.item_rank:
             for item_2 in user.item_rank:
                 if item_1 != item_2:
-                    item_matrix[item_list.index(item_1), item_list.index(item_2)] += 1
+                    temp_item_matrix[item_list.index(item_1), item_list.index(item_2)] += 1
 
     for i in range(item_len):
-        sum_column = sum(item_matrix, axis=1)[i, 0]
+        sum_column = sum(temp_item_matrix, axis=1)[i, 0]
         for j in range(item_len):
-            sum_row = sum(item_matrix, axis=0)[0, j]
+            sum_row = sum(temp_item_matrix, axis=0)[0, j]
             times = sum_column * sum_row
             if times != 0:
-                item_matrix[i, j] = item_matrix[i, j] / (sqrt(times))
+                item_matrix[i, j] = temp_item_matrix[i, j] / (sqrt(times))
     return item_matrix
 
 def top_n(item_matrix, user_list, item_list, n=3):
     topn_list = [[0] * n] * item_matrix.shape[0]
-    recommendation_list = []
+    recommendation_list = {}
     for i in range(item_matrix.shape[0]):
         topn_list[i] = heapq.nlargest(n, range(len(item_matrix.tolist()[i])), item_matrix.tolist()[i].__getitem__)
     for user in user_list:
         topn = []
         for item in user.item_rank:
-            topn.append(topn_list[item_list.index(item)])
-            # TODO
-        recommendation_list.append({user.user_id: topn})
+            for reco_item in topn_list[item_list.index(item)]:
+                topn.append((item_list.index(item), reco_item))
+        topn.sort(key=lambda tup: item_matrix[tup[0], tup[1]], reverse=True)
+        recommendation_list[user.user_id] = topn[:n]
     return recommendation_list
 
-def measure(test_user_list, recommendation_list):
-    # TODO
+def measure(test_user_list, recommendation_list, item_list):
+    precision = []
+    recall = []
     true_positives = 0
-    for test_item in test_user_list:
-        for reco_item in recommendation_list:
-            if test_item == reco_item:
-                true_positives += 1
-    false_positives = len(recommendation_list) - true_positives
-    false_negatives = len(test_user_list) - true_positives
-
-    precision = true_positives / (len(recommendation_list))
-    recall = true_positives / len(test_user_list)
+    for user in test_user_list:
+        for test_item in user.item_rank:
+            for reco_item in recommendation_list:
+                if test_item == item_list[int(reco_item)]:
+                    true_positives += 1
+        precision.append(true_positives / (len(recommendation_list)))
+        recall.append(true_positives / len(test_user_list))
     return(precision, recall)
 
 class User(object):
@@ -80,10 +81,13 @@ class User(object):
 def main():
     ''' item-based collaborative filtering'''
 
-    train_user_list, train_item_list = read_data('train')
+    train_user_list, train_item_list = read_data('july')
     item_matrix = cosine_similarity(train_user_list, train_item_list)
     recommendation_list = top_n(item_matrix, train_user_list, train_item_list)
-    print(recommendation_list)
-    
+    test_user_list, _ = read_data('aug')
+    precision, recall = measure(test_user_list, recommendation_list, train_item_list)
+    print('precision: {0}'.format(precision))
+    print('recall: {0}'.format(recall))
+
 if __name__ == '__main__':
     main()
