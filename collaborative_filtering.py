@@ -37,17 +37,20 @@ def cosine_similarity(user_list, item_list):
     item_len = len(item_list)
     temp_item_matrix = mat(zeros((item_len, item_len)))
     item_matrix = mat(zeros((item_len, item_len)))
+    item_dict = {}
+    for index, item in enumerate(item_list):
+        item_dict[item] = index
     for user in user_list:
         for item_1 in user.item_rank:
             for item_2 in user.item_rank:
                 if item_1 != item_2:
-                    temp_item_matrix[item_list.index(item_1), item_list.index(item_2)] += 1
-
+                    temp_item_matrix[item_dict[item_1], item_dict[item_2]] += 1
+    logging.info('middle of cosine similarity.')
+    sum_column = sum(temp_item_matrix, axis=1)
+    sum_row = sum(temp_item_matrix, axis=0)
     for i in range(item_len):
-        sum_column = sum(temp_item_matrix, axis=1)[i, 0]
         for j in range(item_len):
-            sum_row = sum(temp_item_matrix, axis=0)[0, j]
-            times = sum_column * sum_row
+            times = sum_column[i, 0] * sum_row[0, j]
             if times != 0:
                 item_matrix[i, j] = temp_item_matrix[i, j] / (sqrt(times))
     logging.info('complete calculating cosine similarity.')
