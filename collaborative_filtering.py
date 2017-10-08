@@ -1,6 +1,7 @@
 import csv
 import time
 import heapq
+import _thread
 import timeit
 import logging
 from numpy import *
@@ -54,19 +55,32 @@ def cosine_similarity(user_list, item_list):
             if times != 0:
                 item_matrix[i, j] = temp_item_matrix[i, j] / (sqrt(times))
     logging.info('complete calculating cosine similarity.')
+    # try:
+    #     _thread.start_new_thread(save, ('data/cosine_similarity.csv', item_matrix))
+    # except:
+    #     logging.error('can not start thread to save cosine_similarity')
     return item_matrix
+
+def save(file, data):
+    savetxt(file, data, delimiter = ',')
+    logging.info('complete saving cosine similarity.')
 
 def top_n(item_matrix, user_list, item_list, n=3):
     logging.info('begin to calculate top_n.')
     topn_list = [[0] * n] * item_matrix.shape[0]
     recommendation_list = {}
+    item_matrix_list = item_matrix.tolist()
     for i in range(item_matrix.shape[0]):
-        topn_list[i] = heapq.nlargest(n, range(len(item_matrix.tolist()[i])), item_matrix.tolist()[i].__getitem__)
+        topn_list[i] = heapq.nlargest(n, range(len(item_matrix_list[i])), item_matrix_list[i].__getitem__)
+    logging.info('middle of top_n.')
+    item_dict = {}
+    for index, item in enumerate(item_list):
+        item_dict[item] = index
     for user in user_list:
         topn = []
         for item in user.item_rank:
-            for reco_item in topn_list[item_list.index(item)]:
-                topn.append((item_list.index(item), reco_item))
+            for reco_item in topn_list[item_dict[item]]:
+                topn.append((item_dict[item], reco_item))
         topn.sort(key=lambda tup: item_matrix[tup[0], tup[1]], reverse=True)
         recommendation_list[user.user_id] = topn[:n]
     logging.info('complete calculating top_n.')
