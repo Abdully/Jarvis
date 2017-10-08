@@ -55,15 +55,7 @@ def cosine_similarity(user_list, item_list):
             if times != 0:
                 item_matrix[i, j] = temp_item_matrix[i, j] / (sqrt(times))
     logging.info('complete calculating cosine similarity.')
-    # try:
-    #     _thread.start_new_thread(save, ('data/cosine_similarity.csv', item_matrix))
-    # except:
-    #     logging.error('can not start thread to save cosine_similarity')
     return item_matrix
-
-def save(file, data):
-    savetxt(file, data, delimiter = ',')
-    logging.info('complete saving cosine similarity.')
 
 def top_n(item_matrix, user_list, item_list, n=3):
     logging.info('begin to calculate top_n.')
@@ -77,12 +69,15 @@ def top_n(item_matrix, user_list, item_list, n=3):
     for index, item in enumerate(item_list):
         item_dict[item] = index
     for user in user_list:
-        topn = []
+        top = []
         for item in user.item_rank:
             for reco_item in topn_list[item_dict[item]]:
-                topn.append((item_dict[item], reco_item))
-        topn.sort(key=lambda tup: item_matrix[tup[0], tup[1]], reverse=True)
-        recommendation_list[user.user_id] = topn[:n]
+                top.append((item_dict[item], reco_item))
+        top.sort(key=lambda tup: item_matrix[tup[0], tup[1]], reverse=True)
+        top_reco = top[1]
+        top_reco_deduplication = list(set(top_reco))
+        top_reco_deduplication.sort(key=top_reco.index)
+        recommendation_list[user.user_id] = top_reco_deduplication[:n]
     logging.info('complete calculating top_n.')
     return recommendation_list
 
@@ -93,11 +88,12 @@ def measure(test_user_list, recommendation_list, item_list):
     true_positives = 0
     for user in test_user_list:
         for test_item in user.item_rank:
-            for reco_item in recommendation_list:
+            for reco_item in recommendation_list[user.user_id]:
                 if test_item == item_list[int(reco_item)]:
                     true_positives += 1
-        precision.append(true_positives / (len(recommendation_list)))
-        recall.append(true_positives / len(test_user_list))
+        precision.append(true_positives / (len(recommendation_list[user.user_id])))
+        recall.append(true_positives / len(user.item_rank))
+        true_positives = 0
     logging.info('complete testing.')
     return(precision, recall)
 
