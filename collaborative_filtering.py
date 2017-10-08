@@ -15,7 +15,7 @@ def read_data(month):
         for row in reader:
             user_id = row[0]
             item_id = row[1]
-            count = int(row[2])
+            count = int(row[3])
             user_exist = False
             item_exist = False
             for item in item_list:
@@ -85,15 +85,15 @@ def measure(test_user_list, recommendation_list, item_list):
     logging.info('begin to test.')
     precision = []
     recall = []
-    true_positives = 0
     for user in test_user_list:
-        for test_item in user.item_rank:
-            for reco_item in recommendation_list[user.user_id]:
-                if test_item == item_list[int(reco_item)]:
-                    true_positives += 1
-        precision.append(true_positives / (len(recommendation_list[user.user_id])))
-        recall.append(true_positives / len(user.item_rank))
-        true_positives = 0
+        if recommendation_list.has_key(user.user_id):
+            true_positives = 0
+            for test_item in user.item_rank:
+                for reco_item in recommendation_list[user.user_id]:
+                    if test_item == item_list[int(reco_item)]:
+                        true_positives += 1
+            precision.append(true_positives / (len(recommendation_list[user.user_id])))
+            recall.append(true_positives / len(user.item_rank))
     logging.info('complete testing.')
     return(precision, recall)
 
