@@ -14,7 +14,7 @@ def read_data(month):
         reader = csv.reader(csv_file)
         for row in reader:
             user_id = row[0]
-            item_id = row[1]
+            item_id = row[2]
             count = int(row[3])
             user_exist = False
             item_exist = False
@@ -58,7 +58,7 @@ def cosine_similarity(user_list, item_list):
     return item_matrix
 
 def top_n(item_matrix, user_list, item_list, n=3):
-    logging.info('begin to calculate top_n.')
+    logging.info('begin to calculate top_{0}.'.format(n))
     topn_list = [[0] * n] * item_matrix.shape[0]
     recommendation_list = {}
     item_matrix_list = item_matrix.tolist()
@@ -78,24 +78,26 @@ def top_n(item_matrix, user_list, item_list, n=3):
         top_reco_deduplication = list(set(top_reco))
         top_reco_deduplication.sort(key=top_reco.index)
         recommendation_list[user.user_id] = top_reco_deduplication[:n]
-    logging.info('complete calculating top_n.')
+    logging.info('complete calculating top_{0}.'.format(n))
     return recommendation_list
 
 def measure(test_user_list, recommendation_list, item_list):
     logging.info('begin to test.')
-    precision = []
-    recall = []
+    true_positives = 0
+    precision_denominator = 0
+    recall_denominator = 0
     for user in test_user_list:
-        if recommendation_list.has_key(user.user_id):
-            true_positives = 0
+        if recommendation_list.__contains__(user.user_id):
             for test_item in user.item_rank:
                 for reco_item in recommendation_list[user.user_id]:
                     if test_item == item_list[int(reco_item)]:
                         true_positives += 1
-            precision.append(true_positives / (len(recommendation_list[user.user_id])))
-            recall.append(true_positives / len(user.item_rank))
+            precision_denominator += len(recommendation_list[user.user_id])
+            recall_denominator += len(user.item_rank)
+    precision = true_positives / precision_denominator
+    recall = true_positives / recall_denominator
     logging.info('complete testing.')
-    return(precision, recall)
+    return (precision, recall)
 
 class User(object):
     def __init__(self, user_id, item_rank):
@@ -108,14 +110,19 @@ def main():
     logging.info(time.asctime(time.localtime(time.time())))
     start_time = timeit.default_timer()
 
+    precision_list = []
+    recall_list = []
     train_user_list, train_item_list = read_data('july')
     item_matrix = cosine_similarity(train_user_list, train_item_list)
-    recommendation_list = top_n(item_matrix, train_user_list, train_item_list)
     test_user_list, _ = read_data('aug')
-    precision, recall = measure(test_user_list, recommendation_list, train_item_list)
+    for n in range(3, 20):
+        recommendation_list = top_n(item_matrix, train_user_list, train_item_list, n)
+        precision, recall = measure(test_user_list, recommendation_list, train_item_list)
+    precision_list.append(precision)
+    recall_list.append(recall)
     result = open("result.txt", 'w+')
-    print('precision: {0}'.format(precision), file=result)
-    print('recall: {0}'.format(recall), file=result)
+    print('precision: {0}'.format(precision_list), file=result)
+    print('recall: {0}'.format(recall_list), file=result)
 
     stop_time = timeit.default_timer()
     logging.info('run in {0} seconds.\n'.format(stop_time - start_time)) 
