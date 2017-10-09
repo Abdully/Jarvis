@@ -64,7 +64,7 @@ def top_n(item_matrix, user_list, item_list, n=3):
     item_matrix_list = item_matrix.tolist()
     for i in range(item_matrix.shape[0]):
         topn_list[i] = heapq.nlargest(n, range(len(item_matrix_list[i])), item_matrix_list[i].__getitem__)
-    logging.info('middle of top_n.')
+    logging.info('middle of top_{0}.'.format(n))
     item_dict = {}
     for index, item in enumerate(item_list):
         item_dict[item] = index
@@ -74,7 +74,9 @@ def top_n(item_matrix, user_list, item_list, n=3):
             for reco_item in topn_list[item_dict[item]]:
                 top.append((item_dict[item], reco_item))
         top.sort(key=lambda tup: item_matrix[tup[0], tup[1]], reverse=True)
-        top_reco = top[1]
+        top_reco = []
+        for item in top:
+            top_reco.append(item[1])
         top_reco_deduplication = list(set(top_reco))
         top_reco_deduplication.sort(key=top_reco.index)
         recommendation_list[user.user_id] = top_reco_deduplication[:n]
@@ -115,11 +117,11 @@ def main():
     train_user_list, train_item_list = read_data('july')
     item_matrix = cosine_similarity(train_user_list, train_item_list)
     test_user_list, _ = read_data('aug')
-    for n in range(3, 20):
+    for n in range(3, 21):
         recommendation_list = top_n(item_matrix, train_user_list, train_item_list, n)
         precision, recall = measure(test_user_list, recommendation_list, train_item_list)
-    precision_list.append(precision)
-    recall_list.append(recall)
+        precision_list.append(precision)
+        recall_list.append(recall)
     result = open("result.txt", 'w+')
     print('precision: {0}'.format(precision_list), file=result)
     print('recall: {0}'.format(recall_list), file=result)
