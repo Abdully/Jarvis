@@ -36,6 +36,26 @@ def read_data(month):
     logging.info('complete loading data in {0}.'.format(month))
     return (user_list, item_list)
 
+def visualization(user_list, item_list):
+    item_len = len(item_list)
+    user_len = len(user_list)
+    user_dict = {}
+    item_dict = {}
+    item_cnt = {}
+    for user in user_list:
+        user_dict[len(user.item_rank)] = 1 + user_dict.get(len(user.item_rank), 0)
+        for item in user.item_rank:
+            item_dict[item] = user.item_rank[item] + item_dict.get(item, 0)
+    for item in item_dict:
+        item_cnt[item_dict[item]] = 1 + item_cnt.get(item_dict[item], 0)
+    axis('equal')
+    pie(list(user_dict.values()), labels=list(user_dict.keys()), autopct='%d%%')
+    savefig("visualization_user.png", dpi=400)
+    clf()
+    axis('equal')
+    pie(list(item_cnt.values()), labels=list(item_cnt.keys()), autopct='%d%%')
+    savefig("visualization_item.png", dpi=400)
+
 def cosine_similarity(user_list, item_list):
     logging.info('begin to calculate cosine similarity.')
     item_len = len(item_list)
