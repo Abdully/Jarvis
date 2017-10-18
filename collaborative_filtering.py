@@ -8,8 +8,6 @@ import timeit
 import logging
 from pylab import *
 from numpy import *
-# TODO:
-# 1. 根据训练集中的物品数量确定测试集推荐数量
 
 def read_data(month):
     logging.info('begin to read data in {0}.'.format(month))
@@ -74,6 +72,7 @@ def top_n(item_matrix, user_list, item_list, n=3):
         item_dict[item] = index
     for user in user_list:
         top = []
+        item_len = len(user.item_rank)
         for item in user.item_rank:
             for reco_item in topn_list[item_dict[item]]:
                 top.append((item_dict[item], reco_item))
@@ -83,6 +82,7 @@ def top_n(item_matrix, user_list, item_list, n=3):
             top_reco.append(item[1])
         top_reco_deduplication = list(set(top_reco))
         top_reco_deduplication.sort(key=top_reco.index)
+        n = item_len
         recommendation_list[user.user_id] = top_reco_deduplication[:n]
     logging.info('complete calculating top_{0}.'.format(n))
     return recommendation_list
@@ -115,10 +115,10 @@ def draw():
         if os.path.splitext(file)[1] == '.txt':
             f = open("result/{0}".format(file))
             data = f.readlines()
-            plot(x, re.split('[ |\]||,|\[||\n]+', data[0])[2:20], label=("precision" + os.path.splitext(file)[0]))
-            plot(x, re.split('[ |\]||,|\[||\n]+', data[1])[2:20], label=("recall" + os.path.splitext(file)[0]))
+            plot(x, re.split('[ |\]||,|\[||\n]+', data[0])[2:20], label=("precision:" + os.path.splitext(file)[0]))
+            plot(x, re.split('[ |\]||,|\[||\n]+', data[1])[2:20], label=("recall:" + os.path.splitext(file)[0]))
     legend(loc='lower right')
-    savefig("result.png")
+    savefig("result.png", dpi=400)
 
 class User(object):
     def __init__(self, user_id, item_rank):
@@ -136,11 +136,11 @@ def main():
     train_user_list, train_item_list = read_data('trainData_20160501_20160731')
     item_matrix = cosine_similarity(train_user_list, train_item_list)
     test_user_list, _ = read_data('testData_20160801_20160831')
-    for n in range(3, 21):
-        recommendation_list = top_n(item_matrix, train_user_list, train_item_list, n)
-        precision, recall = measure(test_user_list, recommendation_list, train_item_list)
-        precision_list.append(precision)
-        recall_list.append(recall)
+    # for n in range(20, 21):
+    recommendation_list = top_n(item_matrix, train_user_list, train_item_list, 20)
+    precision, recall = measure(test_user_list, recommendation_list, train_item_list)
+    precision_list.append(precision)
+    recall_list.append(recall)
     result = open("result.txt", 'w+')
     print('precision = {0}'.format(precision_list), file=result)
     print('recall = {0}'.format(recall_list), file=result)
