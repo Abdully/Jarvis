@@ -72,7 +72,6 @@ def top_n(item_matrix, user_list, item_list, n=3):
         item_dict[item] = index
     for user in user_list:
         top = []
-        item_len = len(user.item_rank)
         for item in user.item_rank:
             for reco_item in topn_list[item_dict[item]]:
                 top.append((item_dict[item], reco_item))
@@ -82,7 +81,6 @@ def top_n(item_matrix, user_list, item_list, n=3):
             top_reco.append(item[1])
         top_reco_deduplication = list(set(top_reco))
         top_reco_deduplication.sort(key=top_reco.index)
-        n = item_len
         recommendation_list[user.user_id] = top_reco_deduplication[:n]
     logging.info('complete calculating top_{0}.'.format(n))
     return recommendation_list
@@ -136,11 +134,11 @@ def main():
     train_user_list, train_item_list = read_data('trainData_20160501_20160731')
     item_matrix = cosine_similarity(train_user_list, train_item_list)
     test_user_list, _ = read_data('testData_20160801_20160831')
-    # for n in range(20, 21):
-    recommendation_list = top_n(item_matrix, train_user_list, train_item_list, 20)
-    precision, recall = measure(test_user_list, recommendation_list, train_item_list)
-    precision_list.append(precision)
-    recall_list.append(recall)
+    for n in range(3, 21):
+        recommendation_list = top_n(item_matrix, train_user_list, train_item_list, n)
+        precision, recall = measure(test_user_list, recommendation_list, train_item_list)
+        precision_list.append(precision)
+        recall_list.append(recall)
     result = open("result.txt", 'w+')
     print('precision = {0}'.format(precision_list), file=result)
     print('recall = {0}'.format(recall_list), file=result)
