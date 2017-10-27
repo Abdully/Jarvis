@@ -105,7 +105,7 @@ def top_n(item_matrix, user_list, item_list, n=3):
     logging.info('complete calculating top_{0}.'.format(n))
     return recommendation_list
 
-def measure(test_user_list, recommendation_list, item_list, ignore_item_threshold=10):
+def measure(test_user_list, recommendation_list, item_list, ignore_item_threshold=0):
     logging.info('begin to test.')
     true_positives = 0
     precision_denominator = 0
@@ -126,17 +126,22 @@ def measure(test_user_list, recommendation_list, item_list, ignore_item_threshol
     logging.info('complete testing.')
     return (precision, recall)
 
-def draw():
-    x = [i for i in range(3, 21)]
+def draw(n_begin, n_end, n_step):
+    x = [i for i in range(n_begin, n_end, n_step)]
     result_files = os.listdir("result")
     for file in result_files:
         if os.path.splitext(file)[1] == '.txt':
             f = open("result/{0}".format(file))
             data = f.readlines()
-            plot(x, re.split('[ |\]||,|\[||\n]+', data[0])[2:20], label=("precision:" + os.path.splitext(file)[0]))
-            plot(x, re.split('[ |\]||,|\[||\n]+', data[1])[2:20], label=("recall:" + os.path.splitext(file)[0]))
+            tail = int((n_end - n_begin - 1) / n_step) + 2
+            plot(x, re.split('[ |\]||,|\[||\n]+', data[0])[2:tail], label=("precision:" + os.path.splitext(file)[0]))
+            plot(x, re.split('[ |\]||,|\[||\n]+', data[1])[2:tail], label=("recall:" + os.path.splitext(file)[0]))
     legend(loc='lower right')
     savefig("result.png", dpi=400)
+
+def notify():
+    os.system('ssh -p 8000 Yang@10.60.41.125')
+    os.system('python3 /Users/Yang/Developer/Jarvis/notify.py')
 
 class User(object):
     def __init__(self, user_id, item_rank):
@@ -145,28 +150,34 @@ class User(object):
 
 def main():
     # ''' item-based collaborative filtering'''
+
     logging.basicConfig(filename='cf.log', level=logging.INFO)
     logging.info(time.asctime(time.localtime(time.time())))
     start_time = timeit.default_timer()
 
+    n_begin = 5
+    n_end = 101
+    n_step = 5
     precision_list = []
     recall_list = []
     train_user_list, train_item_list = read_data('trainData_20160501_20160731')
     item_matrix = cosine_similarity(train_user_list, train_item_list)
     test_user_list, _ = read_data('testData_20160801_20160831')
-    for n in range(3, 21):
+    for n in range(n_begin, n_end, n_step):
         recommendation_list = top_n(item_matrix, train_user_list, train_item_list, n)
         precision, recall = measure(test_user_list, recommendation_list, train_item_list)
         precision_list.append(precision)
         recall_list.append(recall)
-    result = open("result.txt", 'w+')
+    result = open("result/result.txt", 'w+')
     print('precision = {0}'.format(precision_list), file=result)
     print('recall = {0}'.format(recall_list), file=result)
 
     stop_time = timeit.default_timer()
     logging.info('run in {0} seconds.\n'.format(stop_time - start_time))
 
-    draw()
+    draw(n_begin, n_end, n_step)
+
+    notify()
 
 if __name__ == '__main__':
     main()
