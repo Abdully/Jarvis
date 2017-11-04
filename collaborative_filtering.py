@@ -79,6 +79,14 @@ def cosine_similarity(user_list, item_list):
     logging.info('complete calculating cosine similarity.')
     return item_matrix
 
+def output(recommendation_list, item_list):
+    with open('result/recommendation_list.csv', 'w') as csv_file:
+        for key, values in recommendation_list.items():
+            items = []
+            for value in values:
+                items.append(item_list[value])
+            csv_file.write('%s, %s\n' %(key, items))
+
 def top_n(item_matrix, user_list, item_list, n=3):
     logging.info('begin to calculate top_{0}.'.format(n))
     topn_list = [[0] * n] * item_matrix.shape[0]
@@ -140,7 +148,7 @@ def draw(n_begin, n_end, n_step):
     savefig("result.png", dpi=400)
 
 def notify():
-    os.system('ssh -p 8000 Yang@10.60.41.125')
+    # os.system('ssh -p 8000 Yang@10.60.41.125')
     os.system('python3 /Users/Yang/Developer/Jarvis/notify.py')
 
 class User(object):
@@ -151,31 +159,33 @@ class User(object):
 def main():
     # ''' item-based collaborative filtering'''
 
+    n_begin = 10
+    n_end = 11
+    n_step = 5
+
     logging.basicConfig(filename='cf.log', level=logging.INFO)
     logging.info(time.asctime(time.localtime(time.time())))
     start_time = timeit.default_timer()
 
-    n_begin = 5
-    n_end = 101
-    n_step = 5
     precision_list = []
     recall_list = []
-    train_user_list, train_item_list = read_data('trainData_20160501_20160731')
+    train_user_list, train_item_list = read_data('05/trainData_05_07')
     item_matrix = cosine_similarity(train_user_list, train_item_list)
-    test_user_list, _ = read_data('testData_20160801_20160831')
+    test_user_list, _ = read_data('05/testData_08_05')
     for n in range(n_begin, n_end, n_step):
         recommendation_list = top_n(item_matrix, train_user_list, train_item_list, n)
+        output(recommendation_list, train_item_list)
         precision, recall = measure(test_user_list, recommendation_list, train_item_list)
         precision_list.append(precision)
         recall_list.append(recall)
-    result = open("result/result.txt", 'w+')
+    result = open("result/result.txt", 'w')
     print('precision = {0}'.format(precision_list), file=result)
     print('recall = {0}'.format(recall_list), file=result)
 
     stop_time = timeit.default_timer()
     logging.info('run in {0} seconds.\n'.format(stop_time - start_time))
 
-    draw(n_begin, n_end, n_step)
+    # draw(n_begin, n_end, n_step)
 
     notify()
 
