@@ -3,22 +3,30 @@ import re
 import csv
 import time
 import heapq
+import jieba
 import _thread
 import timeit
 import logging
+import Levenshtein
 from pylab import *
 from numpy import *
+from scipy import signal
+import jieba.posseg as pseg
 
 def read_data(month):
     logging.info('begin to read data in {0}.'.format(month))
     user_list = []
     item_list = []
+    item_category_list = []
+    item_name_list = []
     with open('data/{0}.csv'.format(month)) as csv_file:
         reader = csv.reader(csv_file)
         for row in reader:
-            user_id = row[0]
-            item_id = row[1]
-            count = int(row[2])
+            user_id = row[5]
+            item_id = row[7]
+            item_category = row[12][:4]
+            item_name = row[9]
+            count = round(float(row[16]))
             user_exist = False
             item_exist = False
             for item in item_list:
@@ -26,6 +34,8 @@ def read_data(month):
                     item_exist = True
             if not item_exist:
                 item_list.append(item_id)
+                item_category_list.append(item_category)
+                item_name_list.append(item_name)
             for user in user_list:
                 if user_id == user.user_id:
                     user_exist = True
@@ -34,7 +44,22 @@ def read_data(month):
                 user = User(user_id, {item_id: count})
                 user_list.append(user)
     logging.info('complete loading data in {0}.'.format(month))
-    return (user_list, item_list)
+    return (user_list, item_list, item_category_list, item_name_list)
+
+def jieba_(item_name_list):
+    new_name_list = []
+    for item_name in item_name_list:
+        meaning_list = ['ns', 'n', 'vn', 'v', 'nr', 'nz', 'i', 'nz', 'a', 'nt']
+        seg_item_name = pseg.cut(item_name)
+        str = ""
+        for word, flag in seg_item_name:
+            if flag in meaning_list:
+                str += word
+        new_name_list.append(str)
+    return new_name_list
+
+def gaussian(sigma, x, u=0.0):
+    return exp(-(x - u) ** 2 / (2 * sigma ** 2)) / (sigma * math.sqrt(2 * math.pi))
 
 def visualization(user_list, item_list):
     item_len = len(item_list)
@@ -56,7 +81,7 @@ def visualization(user_list, item_list):
     pie(list(item_cnt.values()), labels=list(item_cnt.keys()), autopct='%d%%')
     savefig("visualization_item.png", dpi=400)
 
-def cosine_similarity(user_list, item_list):
+def cosine_similarity(user_list, item_list, item_category_list, new_name_list):
     logging.info('begin to calculate cosine similarity.')
     item_len = len(item_list)
     temp_item_matrix = mat(zeros((item_len, item_len)))
@@ -69,6 +94,10 @@ def cosine_similarity(user_list, item_list):
             for item_2 in user.item_rank:
                 if item_1 != item_2:
                     temp_item_matrix[item_dict[item_1], item_dict[item_2]] += 1
+                    if item_category_list[item_dict[item_1]] == item_category_list[item_dict[item_2]]:
+                        dis = Levenshtein.distance(new_name_list[item_dict[item_1]], new_name_list[item_dict[item_2]])
+                        if dis != 0:
+                            temp_item_matrix[item_dict[item_1], item_dict[item_2]] += 10/dis
     sum_column = sum(temp_item_matrix, axis=1)
     sum_row = sum(temp_item_matrix, axis=0)
     for i in range(item_len):
@@ -159,9 +188,10 @@ class User(object):
 def main():
     # ''' item-based collaborative filtering'''
 
-    n_begin = 10
-    n_end = 11
+    n_begin = 20
+    n_end = 101
     n_step = 5
+    gaussian_std = 100
 
     logging.basicConfig(filename='cf.log', level=logging.INFO)
     logging.info(time.asctime(time.localtime(time.time())))
@@ -169,9 +199,10 @@ def main():
 
     precision_list = []
     recall_list = []
-    train_user_list, train_item_list = read_data('05/trainData_05_07')
-    item_matrix = cosine_similarity(train_user_list, train_item_list)
-    test_user_list, _ = read_data('05/testData_08_05')
+    train_user_list, train_item_list, item_category_list, item_name_list = read_data('train_test_set/trainData_07')
+    new_name_list = jieba_(item_name_list)
+    item_matrix = cosine_similarity(train_user_list, train_item_list, item_category_list, new_name_list)
+    test_user_list, _, _, _ = read_data('train_test_set/testData_08_07')
     for n in range(n_begin, n_end, n_step):
         recommendation_list = top_n(item_matrix, train_user_list, train_item_list, n)
         output(recommendation_list, train_item_list)
