@@ -13,12 +13,42 @@ from numpy import *
 from scipy import signal
 import jieba.posseg as pseg
 
+''' raw data info
+
+db_name   说明    index     proj_name        example
+
+uid     订单编号     0
+sldat   购买时间     1
+pno     收银员编号   2
+cno     收银机编号   3
+cmrid   性别年龄     4
+vipno   会员编号     5      user_id
+id      商品单内编号  6
+pluno   商品编号     7      item_id
+bcd     条码         8
+pluname 商品名称     9      item_name
+spec    包装规格     10
+pkunit  商品单位     11
+dptno   商品类型编号  12     item_category
+dptname 商品类型名称  13
+bndno   品牌编号     14
+bndname 品牌名称     15     brand_name
+qty     购买数量     16     count
+amt     金额        17
+disamt  是否打折     18
+ismmx   是否促销     19
+mtype   促销类型     20
+mdocno  促销单号     21
+isdel   是否更正     22
+'''
+
 def read_data(month):
     logging.info('begin to read data in {0}.'.format(month))
     user_list = []
     item_list = []
     item_category_list = []
     item_name_list = []
+    brand_name_list = []
     with open('data/{0}.csv'.format(month)) as csv_file:
         reader = csv.reader(csv_file)
         for row in reader:
@@ -26,6 +56,7 @@ def read_data(month):
             item_id = row[7]
             item_category = row[12][:4]
             item_name = row[9]
+            brand_name = row[15]
             count = round(float(row[16]))
             user_exist = False
             item_exist = False
@@ -36,6 +67,8 @@ def read_data(month):
                 item_list.append(item_id)
                 item_category_list.append(item_category)
                 item_name_list.append(item_name)
+                if brand_name is not '':
+                    brand_name_list.append(brand_name)
             for user in user_list:
                 if user_id == user.user_id:
                     user_exist = True
@@ -44,7 +77,13 @@ def read_data(month):
                 user = User(user_id, {item_id: count})
                 user_list.append(user)
     logging.info('complete loading data in {0}.'.format(month))
-    return (user_list, item_list, item_category_list, item_name_list)
+    return (user_list, item_list, item_category_list, item_name_list, brand_name_list)
+
+def customize_dict(brand_name_list, month):
+    new_brand_name_list = list(set(brand_name_list))
+    with open('dict/{0}.txt'.format(month), 'w') as txt_file:
+        for brand_name in new_brand_name_list:
+            txt_file.write(brand_name + '\n')
 
 def jieba_(item_name_list):
     new_name_list = []
@@ -192,6 +231,8 @@ def main():
     n_end = 101
     n_step = 5
     gaussian_std = 100
+    train_month = 'trainData_07'
+    test_month = 'testData_08_07'
 
     logging.basicConfig(filename='cf.log', level=logging.INFO)
     logging.info(time.asctime(time.localtime(time.time())))
@@ -199,10 +240,12 @@ def main():
 
     precision_list = []
     recall_list = []
-    train_user_list, train_item_list, item_category_list, item_name_list = read_data('train_test_set/trainData_07')
+    train_user_list, train_item_list, item_category_list, item_name_list, brand_name_list = read_data(train_month)
+    customize_dict(brand_name_list, train_month)
+
     new_name_list = jieba_(item_name_list)
     item_matrix = cosine_similarity(train_user_list, train_item_list, item_category_list, new_name_list)
-    test_user_list, _, _, _ = read_data('train_test_set/testData_08_07')
+    test_user_list, _, _, _, _ = read_data(test_month)
     for n in range(n_begin, n_end, n_step):
         recommendation_list = top_n(item_matrix, train_user_list, train_item_list, n)
         output(recommendation_list, train_item_list)
