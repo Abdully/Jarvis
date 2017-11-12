@@ -15,31 +15,31 @@ import jieba.posseg as pseg
 
 ''' raw data info
 
-db_name   说明    index     proj_name        example
+db_name   说明    index     proj_name             example
 
-uid     订单编号     0
-sldat   购买时间     1
-pno     收银员编号   2
-cno     收银机编号   3
-cmrid   性别年龄     4
-vipno   会员编号     5      user_id
-id      商品单内编号  6
-pluno   商品编号     7      item_id
-bcd     条码         8
-pluname 商品名称     9      item_name
-spec    包装规格     10
-pkunit  商品单位     11
-dptno   商品类型编号  12     item_category
-dptname 商品类型名称  13
-bndno   品牌编号     14
-bndname 品牌名称     15     brand_name
-qty     购买数量     16     count
-amt     金额        17
-disamt  是否打折     18
-ismmx   是否促销     19
-mtype   促销类型     20
+uid     订单编号     0                           160203104111518000
+sldat   购买时间     1                           2016/2/3 10:41
+pno     收银员编号   2                           15
+cno     收银机编号   3                           8331
+cmrid   性别年龄     4                           女[45 以上]
+vipno   会员编号     5      user_id              2900000161443
+id      商品单内编号  6                           3
+pluno   商品编号     7      item_id              14721041
+bcd     条码         8                          6903252713411
+pluname 商品名称     9      item_name            康师傅面霸煮面上汤排骨面五入100g*5
+spec    包装规格     10                          1*6
+pkunit  商品单位     11                          包
+dptno   商品类型编号  12     item_category        14721
+dptname 商品类型名称  13                          连包装
+bndno   品牌编号     14                          14177
+bndname 品牌名称     15     brand_name           康师傅方便面
+qty     购买数量     16     count                1
+amt     金额        17                           17.5
+disamt  是否打折     18                          0  
+ismmx   是否促销     19                          0
+mtype   促销类型     2019                        0
 mdocno  促销单号     21
-isdel   是否更正     22
+isdel   是否更正     2219                        0
 '''
 
 def read_data(month):
@@ -85,7 +85,8 @@ def customize_dict(brand_name_list, month):
         for brand_name in new_brand_name_list:
             txt_file.write(brand_name + '\n')
 
-def jieba_(item_name_list):
+def jieba_(item_name_list, month):
+    jieba.load_userdict('dict/{0}.txt'.format(month))
     new_name_list = []
     for item_name in item_name_list:
         meaning_list = ['ns', 'n', 'vn', 'v', 'nr', 'nz', 'i', 'nz', 'a', 'nt']
@@ -243,7 +244,7 @@ def main():
     train_user_list, train_item_list, item_category_list, item_name_list, brand_name_list = read_data(train_month)
     customize_dict(brand_name_list, train_month)
 
-    new_name_list = jieba_(item_name_list)
+    new_name_list = jieba_(item_name_list, train_month)
     item_matrix = cosine_similarity(train_user_list, train_item_list, item_category_list, new_name_list)
     test_user_list, _, _, _, _ = read_data(test_month)
     for n in range(n_begin, n_end, n_step):
