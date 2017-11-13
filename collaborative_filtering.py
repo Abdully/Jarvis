@@ -28,7 +28,7 @@ pluno   商品编号     7      item_id              14721041
 bcd     条码         8                          6903252713411
 pluname 商品名称     9      item_name            康师傅面霸煮面上汤排骨面五入100g*5
 spec    包装规格     10                          1*6
-pkunit  商品单位     11                          包
+pkunit  商品单位     11     item_unit            包
 dptno   商品类型编号  12     item_category        14721
 dptname 商品类型名称  13                          连包装
 bndno   品牌编号     14                          14177
@@ -49,6 +49,7 @@ def read_data(month):
     item_category_list = []
     item_name_list = []
     brand_name_list = []
+    item_unit_list = []
     with open('data/{0}.csv'.format(month)) as csv_file:
         reader = csv.reader(csv_file)
         for row in reader:
@@ -57,9 +58,11 @@ def read_data(month):
             item_category = row[12][:4]
             item_name = row[9]
             brand_name = row[15]
+            item_unit = row[11]
             count = round(float(row[16]))
             user_exist = False
             item_exist = False
+            item_unit_list.append(item_unit)
             for item in item_list:
                 if item_id == item:
                     item_exist = True
@@ -77,13 +80,20 @@ def read_data(month):
                 user = User(user_id, {item_id: count})
                 user_list.append(user)
     logging.info('complete loading data in {0}.'.format(month))
-    return (user_list, item_list, item_category_list, item_name_list, brand_name_list)
+    return (user_list, item_list, item_category_list, item_name_list, brand_name_list, item_unit_list)
+
+def unite_unit(item_unit_list):
+    new_item_unit_list = list(set(item_unit_list))
+    print(new_item_unit_list)
 
 def customize_dict(brand_name_list, month):
     new_brand_name_list = list(set(brand_name_list))
     with open('dict/{0}.txt'.format(month), 'w') as txt_file:
         for brand_name in new_brand_name_list:
             txt_file.write(brand_name + '\n')
+
+def gaussian(x, sigma):
+    return (math.exp(-pow(x, 2) / sigma))
 
 def jieba_(item_name_list, month):
     jieba.load_userdict('dict/{0}.txt'.format(month))
@@ -97,9 +107,6 @@ def jieba_(item_name_list, month):
                 str += word
         new_name_list.append(str)
     return new_name_list
-
-def gaussian(sigma, x, u=0.0):
-    return exp(-(x - u) ** 2 / (2 * sigma ** 2)) / (sigma * math.sqrt(2 * math.pi))
 
 def visualization(user_list, item_list):
     item_len = len(item_list)
@@ -121,7 +128,7 @@ def visualization(user_list, item_list):
     pie(list(item_cnt.values()), labels=list(item_cnt.keys()), autopct='%d%%')
     savefig("visualization_item.png", dpi=400)
 
-def cosine_similarity(user_list, item_list, item_category_list, new_name_list):
+def cosine_similarity(user_list, item_list, item_category_list, new_name_list, gaussian_sigma):
     logging.info('begin to calculate cosine similarity.')
     item_len = len(item_list)
     temp_item_matrix = mat(zeros((item_len, item_len)))
@@ -136,8 +143,10 @@ def cosine_similarity(user_list, item_list, item_category_list, new_name_list):
                     temp_item_matrix[item_dict[item_1], item_dict[item_2]] += 1
                     if item_category_list[item_dict[item_1]] == item_category_list[item_dict[item_2]]:
                         dis = Levenshtein.distance(new_name_list[item_dict[item_1]], new_name_list[item_dict[item_2]])
-                        if dis != 0:
-                            temp_item_matrix[item_dict[item_1], item_dict[item_2]] += 10/dis
+                        if (new_name_list[item_dict[item_1]] != '') and (new_name_list[item_dict[item_2]] != ''):
+                            temp_item_matrix[item_dict[item_1], item_dict[item_2]] += gaussian(dis, gaussian_sigma) * temp_item_matrix[item_dict[item_1], item_dict[item_2]]
+                        # if dis != 0:
+                        #     temp_item_matrix[item_dict[item_1], item_dict[item_2]] += 10/dis
     sum_column = sum(temp_item_matrix, axis=1)
     sum_row = sum(temp_item_matrix, axis=0)
     for i in range(item_len):
@@ -231,7 +240,7 @@ def main():
     n_begin = 20
     n_end = 101
     n_step = 5
-    gaussian_std = 100
+    gaussian_sigma = 10
     train_month = 'trainData_07'
     test_month = 'testData_08_07'
 
@@ -241,12 +250,13 @@ def main():
 
     precision_list = []
     recall_list = []
-    train_user_list, train_item_list, item_category_list, item_name_list, brand_name_list = read_data(train_month)
+    train_user_list, train_item_list, item_category_list, item_name_list, brand_name_list, item_unit_list = read_data(train_month)
+    
     customize_dict(brand_name_list, train_month)
 
     new_name_list = jieba_(item_name_list, train_month)
-    item_matrix = cosine_similarity(train_user_list, train_item_list, item_category_list, new_name_list)
-    test_user_list, _, _, _, _ = read_data(test_month)
+    item_matrix = cosine_similarity(train_user_list, train_item_list, item_category_list, new_name_list, gaussian_sigma)
+    test_user_list, _, _, _, _, _ = read_data(test_month)
     for n in range(n_begin, n_end, n_step):
         recommendation_list = top_n(item_matrix, train_user_list, train_item_list, n)
         output(recommendation_list, train_item_list)
