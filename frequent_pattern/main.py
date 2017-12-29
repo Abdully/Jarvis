@@ -19,8 +19,8 @@ def main():
     connection = psycopg2.connect("dbname='postgres' user='postgres' host='localhost' password='postgres123456'")
     cur = connection.cursor()
     d = datetime(year=2016, month=1, day=1)
-    end = datetime(year=2016, month=12, day=31)
-    window = timedelta(days=14)
+    end = datetime(year=2016, month=6, day=30)
+    window = timedelta(days=90)
 
     with open('window_transaction_data_viponly_{}_{}_{}.txt'.format(d.date(), end.date(), window.days), 'w') as f:
         dump_filename = 'dump_viponly_{}_{}.pkl'.format(d.date(), end.date())

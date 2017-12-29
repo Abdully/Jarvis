@@ -2,6 +2,7 @@ import psycopg2
 import psycopg2.extras
 import collections
 import operator
+import numpy
 from datetime import datetime, timedelta
 
 def main():
@@ -10,9 +11,10 @@ def main():
     bmiddle = datetime(year=2016, month=11, day=30)
     emiddle = datetime(year=2016, month=12, day=1)
     end = datetime(year=2016, month=12, day=31)
-    window = timedelta(days=14)
+    window = timedelta(days=30)
+    one_day = timedelta(days=1)
     top_begin = 5
-    top_end = 16
+    top_end = 6
 
     precision = []
     recall = []
@@ -20,6 +22,7 @@ def main():
     for top in range(top_begin, top_end, 1):
         reco = {}
         with open('output_data_viponly_{}_{}_{}'.format(d.date(), end.date(), window.days), 'r') as f:
+        # with open('dongdong/res_0.0025.txt', 'r') as f:
             lines = f.readlines()
             for line in lines:
                 # print(line)
@@ -48,68 +51,94 @@ def main():
         #     print(reco[item])
         #     print('-------')
 
-        connection = psycopg2.connect("dbname='postgres' user='postgres' host='localhost' password='postgres123456'")
-        cur = connection.cursor()
-        cur.execute("""SELECT DISTINCT uid, vipno, pluno FROM original_transaction
-                            WHERE sldat::DATE >= DATE %s AND sldat::DATE <= %s AND vipno NOTNULL;""",
-                            (begin, bmiddle))
-        transactions = cur.fetchall()
+        temp_pre = []
+        temp_recall = []
+        temp = end
+        while (temp - window * 2 >= begin):
+            connection = psycopg2.connect("dbname='postgres' user='postgres' host='localhost' password='postgres123456'")
+            cur = connection.cursor()
+            cur.execute("""SELECT DISTINCT uid, vipno, pluno FROM original_transaction
+                                WHERE sldat::DATE >= DATE %s AND sldat::DATE <= %s AND vipno NOTNULL;""",
+                                (temp - window * 2, temp - window - one_day))
+            transactions = cur.fetchall()
 
-        users = {}
-        for transaction in transactions:
-            if transaction[2] in reco.keys():
-                if transaction[1] not in users.keys():
-                    users[transaction[1]] = {}
-                if transaction[2] not in users[transaction[1]].keys():
-                    users[transaction[1]][transaction[2]] = 1
-                else:
-                    users[transaction[1]][transaction[2]] += 1
-
-        # for user in users.keys():
-        #     print(user)
-        #     print(users[user])
-        #     print('-----')
-
-        user_items = {}
-        user_reco = {}
-        for user in users.keys():
-            user_items[user] = {}
-            user_reco[user] = []
-            for item in users[user].keys():
-                for reco_item in reco[item]:
-                    key = int(users[user][item]) * int(reco[item][reco_item])
-                    if reco_item not in user_items[user].keys():
-                        user_items[user][reco_item] = key
+            users = {}
+            for transaction in transactions:
+                if transaction[2] in reco.keys():
+                    if transaction[1] not in users.keys():
+                        users[transaction[1]] = {}
+                    if transaction[2] not in users[transaction[1]].keys():
+                        users[transaction[1]][transaction[2]] = 1
                     else:
-                        user_items[user][reco_item] += key
-            user_reco[user] = sorted(user_items[user].items(), reverse=True, key=operator.itemgetter(1))[:top]
-        
-        # for user in user_reco:
-        #     print(user_reco[user])
+                        users[transaction[1]][transaction[2]] += 1
 
-        cur.execute("""SELECT DISTINCT uid, vipno, pluno FROM original_transaction
-                            WHERE sldat::DATE >= DATE %s AND sldat::DATE <= %s AND vipno NOTNULL;""",
-                            (emiddle, end))   
-        transactions = cur.fetchall()
-        
-        hit = 0
-        pre = 0
-        rec = 0
-        for transaction in transactions:
-            if transaction[1] in user_reco.keys():
-                rec += 1
-                for tuple in user_reco[transaction[1]]:
-                    pre += 1
-                    if transaction[2] == tuple[0]:
-                        hit += 1
+
+            # dongdong begin
+            cur.execute("""SELECT DISTINCT uid, vipno, pluno FROM original_transaction
+                                WHERE sldat::DATE >= DATE %s AND sldat::DATE <= %s AND vipno NOTNULL;""",
+                                (temp - window, temp))
+            transactions = cur.fetchall()
+
+            user_real = {}
+            for transaction in transactions:
+                if transaction[1] not in user_real.keys():
+                    user_real[transaction[1]] = 0
+                else:
+                    user_real[transaction[1]] += 1
+            # dongdong end
+
+            # for user in users.keys():
+            #     print(user)
+            #     print(users[user])
+            #     print('-----')
+
+            user_items = {}
+            user_reco = {}
+            for user in users.keys():
+                user_items[user] = {}
+                user_reco[user] = []
+                for item in users[user].keys():
+                    for reco_item in reco[item]:
+                        key = int(users[user][item]) * int(reco[item][reco_item])
+                        if reco_item not in user_items[user].keys():
+                            user_items[user][reco_item] = key
+                        else:
+                            user_items[user][reco_item] += key
+                try:
+                    user_reco[user] = sorted(user_items[user].items(), reverse=True, key=operator.itemgetter(1))[:user_real[user]]
+                except:
+                    pass
+            
+            # for user in user_reco:
+            #     print(user_reco[user])
+
+            cur.execute("""SELECT DISTINCT uid, vipno, pluno FROM original_transaction
+                                WHERE sldat::DATE >= DATE %s AND sldat::DATE <= %s AND vipno NOTNULL;""",
+                                (temp - window, temp))
+            transactions = cur.fetchall()
+            
+            hit = 0
+            pre = 0
+            rec = 0
+            for transaction in transactions:
+                if transaction[1] in user_reco.keys():
+                    rec += 1
+                    for tuple in user_reco[transaction[1]]:
+                        pre += 1
+                        if transaction[2] == tuple[0]:
+                            hit += 1
+            temp_pre.append(hit/pre)
+            temp_recall.append(hit/rec)
+            
+            temp -= window
+
         print('top: {}'.format(top))
-        print('hit: {}'.format(hit))
-        print('precision: {}'.format(hit/pre))
-        print('recall: {}'.format(hit/rec))
+        print('precision: {}'.format(numpy.mean(temp_pre)))
+        print('recall: {}'.format(numpy.mean(temp_recall)))
         print('--------')
 
-        precision.append(hit/pre)
-        recall.append(hit/rec)
+        precision.append(numpy.mean(temp_pre))
+        recall.append(numpy.mean(temp_recall))
 
     print(precision)
     print(recall)
